@@ -47,11 +47,20 @@ const Quiz = sequelize.define( // define Quiz model (table quizzes)
 // CSS style to include into the views:
 const style = `
         <style>
+            body { font-family: sans-serif; }
             .button { display: inline-block; text-decoration: none;
                 padding: 2px 6px; margin: 2px;
                 background: #4479BA; color: #FFF;
                 border-radius: 4px; border: solid 1px #20538D; }
             .button:hover { background: #356094; }
+            td, tr, th { padding: 10px; border: 0px;}
+            tbody tr:nth-child(odd) {
+                background: #eee;
+              }
+            table {
+                border-collapse: collapse;
+              }
+            
         </style>`;
 
 // View to display all the quizzes in quizzes array
@@ -64,17 +73,26 @@ const indexView = quizzes =>
         ${style}
     </head>
     <body>
-        <h1>Quizzes</h1>` +
+        <h1>Quizzes</h1>
+        <table class="default">
+        <tr>
+        <th>ID</th>
+        <th>Pregunta</th>
+        <th></th>
+        <th></th>
+      </tr>` +
     quizzes.map(quiz =>
-        `<div>
-                <a href="/quizzes/${quiz.id}/play">${quiz.question}</a>
-                <a href="/quizzes/${quiz.id}/edit"
-                   class="button">Edit</a>
-                <a href="/quizzes/${quiz.id}?_method=DELETE"
+        `<tr>
+                <td>${quiz.id}</td>
+                <td><a href="/quizzes/${quiz.id}/play">${quiz.question}</a></td>
+                <td><a href="/quizzes/${quiz.id}/edit"
+                   class="button">Edit</a></td>
+                <td><a href="/quizzes/${quiz.id}?_method=DELETE"
                    onClick="return confirm('Delete: ${quiz.question}')"
-                   class="button">Delete</a>
-             </div>`).join("\n") +
-    `<a href="/quizzes/new" class="button">New Quiz</a>
+                   class="button">Delete</a></td>
+             </tr>`).join("\n") +
+    ` </table>
+    <a href="/quizzes/new" class="button">New Quiz</a>
     </body>
     </html>`;
 
@@ -152,7 +170,28 @@ const newView = quiz => {
 
 // View to show a form to edit a given quiz.
 const editView = (quiz) => {
-    // .... introducir código
+    return `<!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Quiz</title>
+      ${style}
+    </head>
+    <body>
+      <h1>Create New Quiz</h1>
+      <form method="POST" action="/quizzes/${quiz.id}/update?_method=PUT">
+    <!--  <input type="hidden" name="_method" value="PUT">   -->
+        <label for="question">Question: </label>
+        <input type="text" name="question" value="${quiz.question}" placeholder="Question"> 
+        <br>
+        <label for="answer">Answer: </label>
+        <input type="text" name="answer" value="${quiz.answer}" placeholder="Answer">
+        <input type="submit" class="button" value="Update">
+      </form>
+      <br>
+      <a href="/quizzes" class="button">Go back</a>
+    </body>
+    </html>`;
 }
 
 
@@ -163,6 +202,8 @@ const indexController = async (req, res, next) => {
     try {
         const quizzes = await Quiz.findAll()
         res.send(indexView(quizzes))
+        //Para efectos de depuracion
+        //console.log(`New Query of Quizzes`);
     } catch (err) {
         next(err);
     }
@@ -215,6 +256,7 @@ const createController = async (req, res, next) => {
 
     try {
         await Quiz.create({question, answer});
+        console.log(`New Quiz Was Created "${question}"`);
         res.redirect(`/quizzes`);
     } catch (err) {
         next(err)
@@ -222,18 +264,83 @@ const createController = async (req, res, next) => {
 };
 
 //  GET /quizzes/:id/edit
-const editController = (req, res, next) => {
-    // .... introducir código
+//Para edit controler se reciben los parámetros
+const editController = async (req, res, next) => {
+
+    // se intenta convertir el parámetro id en un número
+    const id = Number(req.params.id);
+
+    //se verifica si id es número y de lo contrario se lanza un error
+    if (Number.isNaN(id)) return next(new Error(`"${req.params.id}" should be number.`));
+
+    //si id es numero, continua y busca el quiz con esa id
+    try {
+        let quiz = await Quiz.findByPk(id);
+        //Verifica la existencia del quiz y si no envía un error
+        if (!quiz) return next(new Error(`Quiz ${id} not found.`));
+        //Si todo está bien solicita la vista de edición
+        res.send(editView(quiz));
+    } catch (err) {
+        next(err)
+    }
+
+
+    //res.send(editView(quiz));
+    
 };
 
 //  PUT /quizzes/:id
-const updateController = (req, res, next) => {
+const updateController = async (req, res, next) => {
     // .... introducir código
+    //const {question, answer} = req.body;
+    const id = Number(req.params.id);
+
+    //PARA EL CASO EN POST los parametros pasan en el body
+    const {question, answer} = req.body;
+
+    try {
+
+        let quiz = await Quiz.findByPk(Number(id));
+    
+        quiz.question = question;
+        quiz.answer = answer;
+        await quiz.save({fields: ["question", "answer"]});
+        console.log(`Quiz ${id} was edited.`);
+        res.redirect(`/quizzes`);
+
+    } catch (err) {
+        next(err)
+    }
 };
 
 // DELETE /quizzes/:id
-const destroyController = (req, res, next) => {
-    // .... introducir código
+const destroyController = async (req, res, next) => {
+        // se intenta convertir el parámetro id en un número
+        const id = Number(req.params.id);
+        console.log(typeof id);
+
+        //se verifica si id es número y de lo contrario se lanza un error
+        if (Number.isNaN(id)) return next(new Error(`"${req.params.id}" should be number.`));
+
+        try {
+        let quiz = await Quiz.findByPk(id);
+        
+        //Verifica la existencia del quiz y si no envía un error
+        if (!quiz) return next(new Error(`Quiz ${id} not found.`));
+        //Si todo está bien solicita la vista de edición
+
+        let n = await Quiz.destroy({ where: {id }});
+        if (n===0) throw new Error(`Quiz ${id} not in DB`);
+        console.log(`Quiz ${id} deleted from DB`);
+        
+        const quizzes = await Quiz.findAll()
+        res.send(indexView(quizzes));
+
+    } catch (err) {
+        next(err)
+    }
+
+
 };
 
 
@@ -247,9 +354,17 @@ app.post('/quizzes', createController);
 
 
 // ..... crear rutas e instalar los MWs para:
+
 //   GET  /quizzes/:id/edit
+app.get('/quizzes/:id/edit', editController);
+
 //   PUT  /quizzes/:id
+app.put('/quizzes/:id/update', updateController);
+
 //   DELETE  /quizzes/:id
+app.delete('/quizzes/:id', destroyController);
+
+
 
 
 app.all('*', (req, res) =>
