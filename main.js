@@ -75,21 +75,21 @@ const indexView = quizzes =>
     <body>
         <h1>Quizzes</h1>
         <table class="default">
-        <tr>
+        <tr id="header">
         <th>ID</th>
         <th>Pregunta</th>
         <th></th>
         <th></th>
       </tr>` +
     quizzes.map(quiz =>
-        `<tr>
+        `<tr id="Q${quiz.id}">
                 <td>${quiz.id}</td>
                 <td><a href="/quizzes/${quiz.id}/play">${quiz.question}</a></td>
                 <td><a href="/quizzes/${quiz.id}/edit"
                    class="button">Edit</a></td>
                 <td><a href="/quizzes/${quiz.id}?_method=DELETE"
                    onClick="return confirm('Delete: ${quiz.question}')"
-                   class="button">Delete</a></td>
+                   class="button">Delete ID: ${quiz.id}</a></td>
              </tr>`).join("\n") +
     ` </table>
     <a href="/quizzes/new" class="button">New Quiz</a>
@@ -148,7 +148,7 @@ const newView = quiz => {
   <html>
   <head>
     <meta charset="utf-8">
-    <title>Quiz</title>
+    <title>Quiz Gonzalo Zorrilla</title>
     ${style}
   </head>
   <body>
@@ -299,13 +299,20 @@ const updateController = async (req, res, next) => {
     const {question, answer} = req.body;
 
     try {
-
+        //Se busca el registro a modificar
         let quiz = await Quiz.findByPk(Number(id));
-    
+        
+        //Se modifican los parámetros en la instancia del registro
         quiz.question = question;
         quiz.answer = answer;
+
+        //Se salvan los cambios de los campos indicados
         await quiz.save({fields: ["question", "answer"]});
+
+        //Se lanza un mensaje por consola indicando que fue editado el quiz
         console.log(`Quiz ${id} was edited.`);
+
+        //Se redirige a la lista de quizzes
         res.redirect(`/quizzes`);
 
     } catch (err) {
